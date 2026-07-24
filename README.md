@@ -68,6 +68,11 @@ Android ROM 可以配置成三个独立阶段：
 2. `sign_command` 调用 `scripts/sign_dist.sh`，签名 target-files 并生成 OTA；
 3. `post_success_command` 将最终签名 OTA 上传到发布平台。
 
+签名脚本从 dist 目录的 `LINEAGE_CUSTOM_MODEL` 元数据读取发布机型名，并接受
+`nightly`、`weekly` 或 `monthly` 作为 release type。最终文件名格式为
+`LineageOS-${LINEAGE_CUSTOM_MODEL}-${YYYYMMDD}-${release_type}-signed.zip`，只保留
+年月日，不包含具体时分。
+
 面板和 `/jobs` 会显示“构建中 → 签名中 → 上传中”。私钥必须放在主程序和
 设备配置仓库之外，并通过 `ANDROID_SIGNING_KEYS_DIR` 指向密钥目录。签名脚本要求
 `releasekey`、`platform`、`shared`、`media`、`networkstack`、`sdk_sandbox`、
