@@ -5,6 +5,14 @@ device="${1:?device is required}"
 dist_dir="${2:?dist directory is required}"
 release_family="${3:-LineageOS}"
 keys_dir="${ANDROID_SIGNING_KEYS_DIR:-/home/ubuntu/.signing/lineage-23.2}"
+export TMPDIR="${ANDROID_SIGNING_TMPDIR:-/home/ubuntu/aosp/.tmp/signing}"
+install -d -m 700 "$TMPDIR"
+
+available_kb="$(df -Pk "$TMPDIR" | awk 'NR == 2 {print $4}')"
+if (( available_kb < 25 * 1024 * 1024 )); then
+  printf 'Signing temp directory needs at least 25 GiB free: %s\n' "$TMPDIR" >&2
+  exit 2
+fi
 
 if [[ ! "$device" =~ ^[A-Za-z0-9._+-]+$ || ! "$release_family" =~ ^[A-Za-z0-9._+-]+$ ]]; then
   printf 'Invalid release family or device name\n' >&2
@@ -40,6 +48,7 @@ signed_target_files="$dist_dir/${release_family}-${device}-${stamp}-signed-targe
 signed_ota="$dist_dir/${release_family}-${device}-${stamp}-signed.zip"
 
 printf '[sign] Input target_files: %s\n' "$unsigned"
+printf '[sign] Temporary directory: %s\n' "$TMPDIR"
 "$signer" -o -d "$keys_dir" \
   -k "build/make/target/product/security/nfc=$keys_dir/nfc" \
   "$unsigned" "$signed_target_files"
