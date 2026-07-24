@@ -1,0 +1,17 @@
+services:
+  ci-panel:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      CI_CONFIG: /app/config.toml
+      CI_DEVICES_CONFIG: /devices/devices.toml
+      CI_DATA_DIR: /data
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./config.toml:/app/config.toml:ro
+      - ../avium-ci-devices:/devices:ro
+      - ./data:/data
+      # 构建 Android 时建议直接在宿主机用 systemd 部署；容器模式需挂载源码及缓存：
+      # - /srv/AviumUI-16.2:/srv/AviumUI-16.2

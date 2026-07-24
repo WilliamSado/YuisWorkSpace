@@ -1,0 +1,18 @@
+[Unit]
+Description=Avium CI build server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ubuntu/aosp/avium-ci
+EnvironmentFile=/home/ubuntu/aosp/avium-ci/.env
+ExecStart=/home/ubuntu/aosp/avium-ci/.venv/bin/python -m app
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillMode=mixed
+UMask=0077
+
+[Install]
+WantedBy=default.target

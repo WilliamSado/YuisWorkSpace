@@ -1,0 +1,27 @@
+[Unit]
+Description=Avium CI build server
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=builder
+Group=builder
+WorkingDirectory=/opt/avium-ci
+EnvironmentFile=/opt/avium-ci/.env
+Environment=CI_CONFIG=/opt/avium-ci/config.toml
+Environment=CI_DEVICES_CONFIG=/opt/avium-ci-devices/devices.toml
+Environment=CI_DATA_DIR=/var/lib/avium-ci
+ExecStart=/opt/avium-ci/.venv/bin/python -m app
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=30
+KillMode=mixed
+UMask=0077
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=full
+ReadWritePaths=/var/lib/avium-ci
+
+[Install]
+WantedBy=multi-user.target

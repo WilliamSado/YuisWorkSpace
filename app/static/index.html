@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>YuisWorkSpace</title><link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div id="login" class="login-wrap">
+    <form id="login-form" class="login-card">
+      <div class="brand"><span class="logo">Y</span><div><b>YuisWorkSpace</b><small>Build control center</small></div></div>
+      <h1>欢迎回来</h1><p>登录后管理服务器构建任务</p>
+      <label>管理密码<input id="password" type="password" autocomplete="current-password" placeholder="请输入密码" required></label>
+      <button type="submit">进入控制台</button><div id="login-error" class="error"></div>
+    </form>
+  </div>
+  <div id="app" class="hidden">
+    <aside><div class="brand"><span class="logo">Y</span><div><b>YuisWorkSpace</b><small>Control center</small></div></div><nav><a class="active">◈　概览</a><a href="#jobs">⌁　构建任务</a><a href="#history">◷　历史记录</a></nav><button id="logout" class="ghost">退出登录</button></aside>
+    <main>
+      <header><div><h1>构建控制台</h1><p id="clock"></p></div><div class="live"><i></i> 服务在线</div></header>
+      <section id="stats" class="stats"></section>
+      <section id="jobs"><div class="section-title"><div><h2>构建任务</h2><p>定时任务与手动触发</p></div><button class="outline" id="refresh">刷新</button></div><div id="job-grid" class="job-grid"></div></section>
+      <section id="history"><div class="section-title"><div><h2>最近构建</h2><p>点击记录查看实时日志</p></div></div><div class="table-wrap"><table><thead><tr><th>构建</th><th>任务</th><th>触发</th><th>开始时间</th><th>耗时</th><th>状态</th><th></th></tr></thead><tbody id="builds"></tbody></table></div></section>
+    </main>
+  </div>
+  <dialog id="log-dialog"><div class="dialog-head"><div><h2 id="log-title">构建日志</h2><p id="log-state"></p></div><button id="close-log" class="icon">×</button></div><pre id="log-content">正在加载…</pre></dialog>
+  <div id="toast"></div><script src="/static/app.js"></script>
+</body></html>
