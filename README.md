@@ -60,6 +60,11 @@ enabled = true
 支持命令：`/status`、`/jobs`、`/wen ishtar`、`/build fuxi`、`/cancel 123`、`/help`。
 Bot 只处理以 `/` 开头的 Telegram 消息；群内触发和取消构建仅允许群管理员。
 
+构建、签名和上传全部成功后，可通过任务的 `release_command` 自动发布带 Banner 的
+Telegram Update。发布目标由 `.env` 的 `TELEGRAM_RELEASE_CHAT` 控制，Bot 必须是
+目标频道的管理员并拥有“发布消息”权限。LineageOS Banner 会按
+`LINEAGE_CUSTOM_MODEL` 和 codename 动态替换设备文字。
+
 ## 独立发布签名
 
 Android ROM 可以配置成三个独立阶段：

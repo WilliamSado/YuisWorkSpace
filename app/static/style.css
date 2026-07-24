@@ -170,10 +170,10 @@ tbody tr:last-child td { border: 0; }
 .badge::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: var(--outline); }
 .badge.success { color: var(--green); background: var(--green-bg); }
 .badge.success::before { background: #269c55; }
-.badge.failed, .badge.sign_failed, .badge.timeout, .badge.cancelled, .badge.upload_failed, .badge.interrupted { color: var(--red); background: var(--red-bg); }
-.badge.failed::before, .badge.sign_failed::before, .badge.timeout::before, .badge.cancelled::before, .badge.upload_failed::before, .badge.interrupted::before { background: var(--red); }
-.badge.running, .badge.queued, .badge.signing, .badge.uploading { color: var(--amber); background: var(--amber-bg); }
-.badge.running::before, .badge.queued::before, .badge.signing::before, .badge.uploading::before { background: #a77d00; animation: pulse 1s infinite; }
+.badge.failed, .badge.sign_failed, .badge.release_failed, .badge.timeout, .badge.cancelled, .badge.upload_failed, .badge.interrupted { color: var(--red); background: var(--red-bg); }
+.badge.failed::before, .badge.sign_failed::before, .badge.release_failed::before, .badge.timeout::before, .badge.cancelled::before, .badge.upload_failed::before, .badge.interrupted::before { background: var(--red); }
+.badge.running, .badge.queued, .badge.signing, .badge.uploading, .badge.publishing { color: var(--amber); background: var(--amber-bg); }
+.badge.running::before, .badge.queued::before, .badge.signing::before, .badge.uploading::before, .badge.publishing::before { background: #a77d00; animation: pulse 1s infinite; }
 .small-btn { min-height: 32px; padding: 5px 12px; font-size: 12px; background: var(--red); box-shadow: none; }
 @keyframes pulse { 50% { opacity: .25; } }
 

@@ -65,7 +65,7 @@ def init_db() -> None:
         """)
         conn.execute(
             "UPDATE builds SET status='interrupted', finished_at=? "
-            "WHERE status IN ('queued','running','signing','uploading')",
+            "WHERE status IN ('queued','running','signing','uploading','publishing')",
             (now(),),
         )
 
@@ -218,6 +218,27 @@ async def worker() -> None:
                         post_code = -1
                     if post_code != 0:
                         code, status = post_code, "upload_failed"
+                if status == "success" and job.get("release_command"):
+                    with db() as conn:
+                        conn.execute("UPDATE builds SET status='publishing' WHERE id=?", (build_id,))
+                    log.write(b"\n[ci] Upload succeeded; publishing Telegram update\n")
+                    log.flush()
+                    release_proc = await asyncio.create_subprocess_shell(
+                        job["release_command"], cwd=job["workdir"], stdout=log,
+                        stderr=asyncio.subprocess.STDOUT, start_new_session=True,
+                        executable="/bin/bash",
+                    )
+                    running[build_id] = release_proc
+                    try:
+                        release_code = await asyncio.wait_for(
+                            release_proc.wait(), timeout=int(job.get("release_timeout_minutes", 10)) * 60,
+                        )
+                    except asyncio.TimeoutError:
+                        os.killpg(release_proc.pid, signal.SIGTERM)
+                        await release_proc.wait()
+                        release_code = -1
+                    if release_code != 0:
+                        code, status = release_code, "release_failed"
             # cancel_build updates the row before SIGTERM makes wait() return.
             if row(build_id)["status"] == "cancelled":
                 status = "cancelled"
@@ -304,7 +325,7 @@ def jobs_text() -> tuple[str, bool]:
         lines.append(f"\n• {job.get('name', job['id'])}\n  ID: {job['id']} · cron: {schedule}")
         if item:
             state = item["status"]
-            if state in ("running", "signing", "uploading"):
+            if state in ("running", "signing", "uploading", "publishing"):
                 detail = build_progress(item)
                 if item["started_at"]:
                     elapsed = max(0, int((datetime.now(TZ) - datetime.fromisoformat(item["started_at"])).total_seconds()))
@@ -312,14 +333,14 @@ def jobs_text() -> tuple[str, bool]:
             else:
                 detail = labels_for_bot(state)
             lines.append(f"  #{item['id']} · {detail}")
-            has_running |= state in ("queued", "running", "signing", "uploading")
+            has_running |= state in ("queued", "running", "signing", "uploading", "publishing")
     if has_running:
         lines.append(f"\n🔄 自动更新 · {datetime.now(TZ).strftime('%H:%M:%S')}")
     return "\n".join(lines), has_running
 
 
 def labels_for_bot(status: str) -> str:
-    return {"queued": "排队中", "running": "构建中", "signing": "签名中", "uploading": "上传中", "success": "构建、签名并上传成功", "failed": "构建失败", "sign_failed": "构建成功但签名失败", "upload_failed": "签名成功但上传失败", "timeout": "构建超时", "cancelled": "已取消", "interrupted": "已中断"}.get(status, status)
+    return {"queued": "排队中", "running": "构建中", "signing": "签名中", "uploading": "上传中", "publishing": "发布 Update 中", "success": "构建、签名、上传并发布成功", "failed": "构建失败", "sign_failed": "构建成功但签名失败", "upload_failed": "签名成功但上传失败", "release_failed": "上传成功但 Telegram Update 发布失败", "timeout": "构建超时", "cancelled": "已取消", "interrupted": "已中断"}.get(status, status)
 
 
 def wen_text(device: str) -> str:
