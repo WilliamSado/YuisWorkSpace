@@ -102,7 +102,8 @@ def main() -> None:
     props = read_props(product_dir)
 
     model_files = [artifact.parent / "LINEAGE_CUSTOM_MODEL", product_dir / "LINEAGE_CUSTOM_MODEL"]
-    model = next((p.read_text().strip() for p in model_files if p.is_file() and p.read_text().strip()), "")
+    model = os.environ.get("LINEAGE_CUSTOM_MODEL", "").strip()
+    model = model or next((p.read_text().strip() for p in model_files if p.is_file() and p.read_text().strip()), "")
     model = model or props.get("ro.product.model") or args.device
     model = model.replace(" ", "_")
 
