@@ -84,8 +84,10 @@ def main() -> None:
     parser.add_argument("--family", required=True)
     parser.add_argument("--device", required=True)
     parser.add_argument("--release-type", choices=("nightly", "weekly", "monthly"), required=True)
+    parser.add_argument("--rom-version", help="Explicit ROM version, for example 23.2 or 16.2")
     parser.add_argument("--artifact", required=True, help="Trusted artifact glob")
     parser.add_argument("--banner", choices=("lineageos", "aviumui"), required=True)
+    parser.add_argument("--edit-message-id", type=int, help="Edit an existing Telegram caption instead of posting again")
     args = parser.parse_args()
 
     token = os.environ.get("TELEGRAM_BOT_TOKEN", "")
@@ -114,7 +116,7 @@ def main() -> None:
         or props.get("ro.build.version.incremental")
         or "unknown"
     )
-    rom_version = full_rom_version.split("-")[0]
+    rom_version = args.rom_version or full_rom_version.split("-")[0]
     android_version = props.get("ro.build.version.release", "16")
     security_patch = props.get("ro.build.version.security_patch", "unknown")
     build_variant = props.get("ro.build.type", "userdebug")
@@ -144,6 +146,23 @@ def main() -> None:
         "Join @YuiChanel"
     )
 
+    if args.edit_message_id:
+        with httpx.Client(timeout=90) as client:
+            response = client.post(
+                f"https://api.telegram.org/bot{token}/editMessageCaption",
+                json={
+                    "chat_id": chat,
+                    "message_id": args.edit_message_id,
+                    "caption": caption,
+                    "parse_mode": "HTML",
+                },
+            )
+            result = response.json()
+            if not result.get("ok"):
+                raise RuntimeError(result.get("description", "Telegram rejected caption edit"))
+            print(f"Telegram update caption edited in {chat}: message {args.edit_message_id}")
+        return
+
     temp_root = Path(os.environ.get("ANDROID_SIGNING_TMPDIR", "/home/ubuntu/aosp/.tmp/signing"))
     temp_root.mkdir(parents=True, exist_ok=True)
     with tempfile.TemporaryDirectory(prefix="telegram-update-", dir=temp_root) as temp:
@@ -155,7 +174,6 @@ def main() -> None:
                 data={"chat_id": chat, "caption": caption, "parse_mode": "HTML"},
                 files={"photo": (banner.name, photo, "image/jpeg")},
             )
-            response.raise_for_status()
             result = response.json()
             if not result.get("ok"):
                 raise RuntimeError(result.get("description", "Telegram rejected update post"))
