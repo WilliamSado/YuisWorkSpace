@@ -52,12 +52,14 @@ def ota_metadata(path: Path) -> dict[str, str]:
             text = archive.read("META-INF/com/android/metadata").decode(errors="replace")
     except (KeyError, zipfile.BadZipFile):
         return {}
-    return {
-        key: value
-        for line in text.splitlines()
-        if "=" in line
-        for key, value in [line.split("=", 1)]
-    }
+    result: dict[str, str] = {}
+    for line in text.splitlines():
+        if "=" not in line:
+            continue
+        key, value = (part.strip() for part in line.split("=", 1))
+        if key and value:
+            result[key] = value
+    return result
 
 
 def main() -> None:
