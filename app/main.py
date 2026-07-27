@@ -99,6 +99,9 @@ def find_trigger_jobs(target: str) -> list[dict[str, Any]]:
     if batch:
         return sorted(batch, key=lambda job: int(job.get("batch_order", 0)))
     matches = [j for j in jobs() if j.get("enabled", True) and j.get("device") == target]
+    lineage_batch = [j for j in matches if j.get("batch") == f"lineage-{target}"]
+    if lineage_batch:
+        return sorted(lineage_batch, key=lambda job: int(job.get("batch_order", 0)))
     batches = {j.get("batch") for j in matches}
     if matches and len(batches) == 1 and None not in batches:
         return sorted(matches, key=lambda job: int(job.get("batch_order", 0)))
