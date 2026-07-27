@@ -91,6 +91,23 @@ def find_job(job_id: str) -> dict[str, Any]:
     raise HTTPException(404, "job not found")
 
 
+def find_trigger_jobs(target: str) -> list[dict[str, Any]]:
+    exact = next((j for j in jobs() if j.get("enabled", True) and j.get("id") == target), None)
+    if exact:
+        return [exact]
+    batch = [j for j in jobs() if j.get("enabled", True) and j.get("batch") == target]
+    if batch:
+        return sorted(batch, key=lambda job: int(job.get("batch_order", 0)))
+    matches = [j for j in jobs() if j.get("enabled", True) and j.get("device") == target]
+    batches = {j.get("batch") for j in matches}
+    if matches and len(batches) == 1 and None not in batches:
+        return sorted(matches, key=lambda job: int(job.get("batch_order", 0)))
+    if matches:
+        choices = sorted({j.get("batch") or j["id"] for j in matches})
+        raise HTTPException(409, f"设备对应多个任务，请指定：{', '.join(choices)}")
+    raise HTTPException(404, "job not found")
+
+
 def token_for(expiry: int) -> str:
     raw = str(expiry)
     sig = hmac.new(SECRET.encode(), raw.encode(), hashlib.sha256).hexdigest()
@@ -401,7 +418,10 @@ async def bot_command(text: str, trigger: str, can_control: bool = True) -> str:
     parts = text.strip().split()
     cmd = parts[0].lstrip("/").split("@")[0] if parts else ""
     if cmd in ("start", "help"):
-        return "命令：status｜jobs｜wen <设备>｜build <任务ID>｜cancel <构建ID>"
+        return (
+            "命令：status｜jobs｜wen <设备>｜build <任务ID/批次>｜cancel <构建ID>\n"
+            "Lineage 批次会依次构建 Vanilla 和 GMS，也可指定完整任务 ID 单独构建。"
+        )
     if cmd == "jobs":
         return jobs_text()[0]
     if cmd == "wen" and len(parts) == 2:
@@ -414,11 +434,16 @@ async def bot_command(text: str, trigger: str, can_control: bool = True) -> str:
         if not can_control:
             return "⛔ 只有群管理员可以触发构建"
         try:
-            job = find_job(parts[1])
+            selected = find_trigger_jobs(parts[1])
         except HTTPException as exc:
             return str(exc.detail)
-        build_id = await enqueue(job, trigger)
-        return f"已加入队列：#{build_id}"
+        build_ids = [await enqueue(job, trigger) for job in selected]
+        if len(build_ids) == 1:
+            return f"已加入队列：#{build_ids[0]}"
+        return (
+            f"已加入双版本队列：{'、'.join(f'#{build_id}' for build_id in build_ids)}\n"
+            "顺序：Vanilla → GMS"
+        )
     if cmd == "cancel" and len(parts) == 2 and parts[1].isdigit():
         if not can_control:
             return "⛔ 只有群管理员可以取消构建"

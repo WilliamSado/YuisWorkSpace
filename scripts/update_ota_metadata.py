@@ -70,6 +70,7 @@ def main() -> None:
                         help="Value of ro.lineage.releasetype, for example UNOFFICIAL or NIGHTLY")
     parser.add_argument("--artifact", required=True, help="Trusted artifact glob")
     parser.add_argument("--family", default="LineageOS")
+    parser.add_argument("--flavor", choices=("gms", "vanilla"), required=True)
     parser.add_argument("--repository", default="/home/ubuntu/aosp/lineage-ota")
     args = parser.parse_args()
 
@@ -97,12 +98,13 @@ def main() -> None:
         file_entry["os_patch_level"] = metadata["post-security-patch-level"]
     if metadata.get("post-sdk-level", "").isdigit():
         file_entry["os_sdk_level"] = int(metadata["post-sdk-level"])
-    payload = [{
+    entry = {
         "datetime": ota_timestamp(artifact),
         "files": [file_entry],
         "type": args.release_type.lower(),
         "version": args.version,
-    }]
+        "variant": args.flavor,
+    }
 
     repository = Path(args.repository)
     key = Path(os.environ.get("OTA_DEPLOY_KEY", "/home/ubuntu/.ssh/id_rsa"))
@@ -120,16 +122,31 @@ def main() -> None:
     run("git", "config", "user.email", "ci@lineageos-sado.local", cwd=repository)
 
     output = repository / f"{args.device}.json"
+    existing: list[dict[str, object]] = []
+    if output.is_file():
+        try:
+            loaded = json.loads(output.read_text())
+            if isinstance(loaded, list):
+                existing = [item for item in loaded if isinstance(item, dict)]
+        except json.JSONDecodeError:
+            pass
+    payload = [
+        item for item in existing
+        if item.get("variant") in ("gms", "vanilla") and item.get("variant") != args.flavor
+    ]
+    payload.append(entry)
+    payload.sort(key=lambda item: str(item.get("variant", "")), reverse=True)
     output.write_text(json.dumps(payload, indent=2) + "\n")
     run("git", "add", output.name, cwd=repository)
     changed = subprocess.run(
         ["git", "diff", "--cached", "--quiet"], cwd=repository, check=False
     ).returncode != 0
     if changed:
-        run("git", "commit", "-m", f"ota: publish {args.device} {build_date} {args.release_type}",
+        run("git", "commit", "-m",
+            f"ota: publish {args.device} {args.flavor} {build_date} {args.release_type}",
             cwd=repository)
         run("git", "push", "origin", "main", cwd=repository, env=git_env)
-        print(f"OTA metadata published: {args.device}.json -> {filename}")
+        print(f"OTA metadata published: {args.device}.json [{args.flavor}] -> {filename}")
     else:
         print(f"OTA metadata unchanged: {args.device}.json")
 

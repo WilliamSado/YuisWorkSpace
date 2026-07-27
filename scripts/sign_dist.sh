@@ -5,6 +5,7 @@ device="${1:?device is required}"
 dist_dir="${2:?dist directory is required}"
 release_family="${3:-LineageOS}"
 release_type="${4:-weekly}"
+flavor="${5:-vanilla}"
 keys_dir="${ANDROID_SIGNING_KEYS_DIR:-/home/ubuntu/.signing/lineage-23.2}"
 export TMPDIR="${ANDROID_SIGNING_TMPDIR:-/home/ubuntu/aosp/.tmp/signing}"
 install -d -m 700 "$TMPDIR"
@@ -23,6 +24,11 @@ if [[ ! "$release_type" =~ ^(nightly|weekly|monthly)$ ]]; then
   printf 'Invalid release type: %s (expected nightly, weekly, or monthly)\n' "$release_type" >&2
   exit 2
 fi
+if [[ ! "$flavor" =~ ^(gms|vanilla)$ ]]; then
+  printf 'Invalid flavor: %s (expected gms or vanilla)\n' "$flavor" >&2
+  exit 2
+fi
+flavor_upper="${flavor^^}"
 
 model_file="$dist_dir/LINEAGE_CUSTOM_MODEL"
 [[ -s "$model_file" ]] || {
@@ -61,11 +67,11 @@ mapfile -t target_files < <(
 
 unsigned="${target_files[0]}"
 release_date="$(date +%Y%m%d)"
-signed_target_files="$dist_dir/${release_family}-${custom_model}-${release_date}-${release_type}-signed-target_files.zip"
-signed_ota="$dist_dir/${release_family}-${custom_model}-${release_date}-${release_type}-signed.zip"
+signed_target_files="$dist_dir/${release_family}-${custom_model}-${flavor_upper}-${release_date}-${release_type}-signed-target_files.zip"
+signed_ota="$dist_dir/${release_family}-${custom_model}-${flavor_upper}-${release_date}-${release_type}-signed.zip"
 
 printf '[sign] Input target_files: %s\n' "$unsigned"
-printf '[sign] Model: %s · release type: %s\n' "$custom_model" "$release_type"
+printf '[sign] Model: %s · flavor: %s · release type: %s\n' "$custom_model" "$flavor_upper" "$release_type"
 printf '[sign] Temporary directory: %s\n' "$TMPDIR"
 "$signer" -o -d "$keys_dir" \
   -k "build/make/target/product/security/nfc=$keys_dir/nfc" \

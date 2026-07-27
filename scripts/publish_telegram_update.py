@@ -85,6 +85,8 @@ def main() -> None:
     parser.add_argument("--device", required=True)
     parser.add_argument("--release-type", choices=("nightly", "weekly", "monthly"), required=True)
     parser.add_argument("--rom-version", help="Explicit ROM version, for example 23.2 or 16.2")
+    parser.add_argument("--flavor", choices=("gms", "vanilla"),
+                        help="ROM package flavor; shown separately from build type")
     parser.add_argument("--artifact", required=True, help="Trusted artifact glob")
     parser.add_argument("--banner", choices=("lineageos", "aviumui"), required=True)
     parser.add_argument("--edit-message-id", type=int, help="Edit an existing Telegram caption instead of posting again")
@@ -120,6 +122,7 @@ def main() -> None:
     android_version = props.get("ro.build.version.release", "16")
     security_patch = props.get("ro.build.version.security_patch", "unknown")
     build_variant = props.get("ro.build.type", "userdebug")
+    flavor = (args.flavor or props.get("ro.lineage.custom_type", "")).upper()
     build_date = datetime.now().strftime("%Y-%m-%d")
     path_date = datetime.now().strftime("%Y%m%d")
     download = (
@@ -128,12 +131,14 @@ def main() -> None:
     )
 
     caption = (
-        f"#{safe_tag(args.rom)} #{args.release_type} #Android{safe_tag(android_version)} #{safe_tag(model)}\n"
+        f"#{safe_tag(args.rom)} #{args.release_type} "
+        f"{f'#{safe_tag(flavor)} ' if flavor else ''}"
+        f"#Android{safe_tag(android_version)} #{safe_tag(model)}\n"
         f"<b>{html.escape(args.rom)} {html.escape(rom_version)} | {args.release_type} | "
         f"Android {html.escape(android_version)}</b>\n\n"
         f"📅 Build date: {build_date}\n"
         f"🛡 Security patch: {html.escape(security_patch)}\n"
-        f"💬 Variant: {html.escape(build_variant)}\n\n"
+        f"💬 Variant: {html.escape(flavor + ' · ' if flavor else '')}{html.escape(build_variant)}\n\n"
         f"◾️ <a href=\"{download}\">Download</a>\n\n"
         "Notes:\n"
         "• Selinux is Enforcing.\n"
