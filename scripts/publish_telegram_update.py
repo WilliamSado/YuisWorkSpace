@@ -9,6 +9,7 @@ import re
 import shutil
 import subprocess
 import tempfile
+import time
 from datetime import datetime
 from pathlib import Path
 from urllib.parse import quote
@@ -17,6 +18,35 @@ import httpx
 
 
 BASE = Path(__file__).resolve().parent.parent
+
+
+def telegram_post(url: str, *, json_data: dict[str, object] | None = None,
+                  data: dict[str, str] | None = None, photo: Path | None = None) -> dict[str, object]:
+    attempts = 4
+    for attempt in range(1, attempts + 1):
+        try:
+            with httpx.Client(timeout=90) as client:
+                if photo:
+                    with photo.open("rb") as stream:
+                        response = client.post(
+                            url,
+                            data=data,
+                            files={"photo": (photo.name, stream, "image/jpeg")},
+                        )
+                else:
+                    response = client.post(url, json=json_data)
+            return response.json()
+        except (httpx.ConnectError, httpx.ConnectTimeout) as exc:
+            if attempt == attempts:
+                raise
+            delay = attempt * 5
+            print(
+                f"Telegram connection failed ({exc}); retrying in {delay}s "
+                f"[{attempt}/{attempts}]",
+                flush=True,
+            )
+            time.sleep(delay)
+    raise RuntimeError("Telegram request exhausted retries")
 
 
 def read_props(product_dir: Path) -> dict[str, str]:
@@ -152,20 +182,18 @@ def main() -> None:
     )
 
     if args.edit_message_id:
-        with httpx.Client(timeout=90) as client:
-            response = client.post(
-                f"https://api.telegram.org/bot{token}/editMessageCaption",
-                json={
-                    "chat_id": chat,
-                    "message_id": args.edit_message_id,
-                    "caption": caption,
-                    "parse_mode": "HTML",
-                },
-            )
-            result = response.json()
-            if not result.get("ok"):
-                raise RuntimeError(result.get("description", "Telegram rejected caption edit"))
-            print(f"Telegram update caption edited in {chat}: message {args.edit_message_id}")
+        result = telegram_post(
+            f"https://api.telegram.org/bot{token}/editMessageCaption",
+            json_data={
+                "chat_id": chat,
+                "message_id": args.edit_message_id,
+                "caption": caption,
+                "parse_mode": "HTML",
+            },
+        )
+        if not result.get("ok"):
+            raise RuntimeError(result.get("description", "Telegram rejected caption edit"))
+        print(f"Telegram update caption edited in {chat}: message {args.edit_message_id}")
         return
 
     temp_root = Path(os.environ.get("ANDROID_SIGNING_TMPDIR", "/home/ubuntu/aosp/.tmp/signing"))
@@ -173,16 +201,14 @@ def main() -> None:
     with tempfile.TemporaryDirectory(prefix="telegram-update-", dir=temp_root) as temp:
         banner = Path(temp) / "banner.jpg"
         render_banner(args.banner, model, args.device, banner)
-        with banner.open("rb") as photo, httpx.Client(timeout=90) as client:
-            response = client.post(
-                f"https://api.telegram.org/bot{token}/sendPhoto",
-                data={"chat_id": chat, "caption": caption, "parse_mode": "HTML"},
-                files={"photo": (banner.name, photo, "image/jpeg")},
-            )
-            result = response.json()
-            if not result.get("ok"):
-                raise RuntimeError(result.get("description", "Telegram rejected update post"))
-            print(f"Telegram update published to {chat}: message {result['result']['message_id']}")
+        result = telegram_post(
+            f"https://api.telegram.org/bot{token}/sendPhoto",
+            data={"chat_id": chat, "caption": caption, "parse_mode": "HTML"},
+            photo=banner,
+        )
+        if not result.get("ok"):
+            raise RuntimeError(result.get("description", "Telegram rejected update post"))
+        print(f"Telegram update published to {chat}: message {result['result']['message_id']}")
 
 
 if __name__ == "__main__":
